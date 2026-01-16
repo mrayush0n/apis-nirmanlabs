@@ -1296,23 +1296,32 @@ textarea::placeholder {
 }
 
 .auth-toggle {
-  margin-top: 24px;
-  font-size: 14px;
+  margin-top: 28px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 15px;
   color: #9ca3af;
+}
+
+:root.light .auth-toggle {
+  border-top-color: #e5e7eb;
 }
 
 .auth-toggle-btn {
   background: none;
   border: none;
   color: #3b82f6;
-  font-weight: 600;
+  font-weight: 700;
+  font-size: 15px;
   cursor: pointer;
   padding: 0;
+  margin-left: 4px;
 }
 
 .auth-toggle-btn:hover {
   text-decoration: underline;
 }
+
 
 /* Auth Responsive - Tablet */
 @media (max-width: 768px) {
