@@ -1,0 +1,7 @@
+{
+  "name": "APIS Intelligent Assistant",
+  "description": "A multimodal AI chatbot for Angels Palace International School featuring text and voice interaction.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
