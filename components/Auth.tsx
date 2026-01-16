@@ -1,12 +1,6 @@
-
 import React, { useState } from 'react';
 import { auth } from '../firebaseConfig';
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
-import { getFirestore, doc, setDoc } from 'firebase/firestore'; // Assuming firestore is initialized or will be
-// Note: We need to initialize Firestore in firebaseConfig if we want to store extra user details like Age/Designation
-// For now, I will add Firestore init to this file or assume it's available. 
-// Actually, let's update firebaseConfig to export db as well if possible, but for now I'll use a simple auth flow and maybe store extra data in local state or try to init firestore here if config allows.
-// Given strict instructions, I'll focus on the UI and Auth flow first.
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile, GoogleAuthProvider, signInWithPopup, signInWithRedirect } from 'firebase/auth';
 
 interface AuthProps {
     onLogin: (user: any) => void;
@@ -33,27 +27,14 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
                 if (password !== confirmPassword) {
                     throw new Error("Passwords do not match");
                 }
-
-                // Create User
                 const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-                const user = userCredential.user;
-
-                // Update Profile
-                await updateProfile(user, {
-                    displayName: fullName
-                });
-
-                // Store extra details (Mocking this part or assuming Firestore integration later)
-                // console.log("User details:", { age, designation });
-
+                await updateProfile(userCredential.user, { displayName: fullName });
             } else {
-                // Sign In
                 await signInWithEmailAndPassword(auth, email, password);
             }
-            // Auth state listener in App.tsx will handle the transition, but we can also trigger onLogin here
         } catch (err: any) {
             console.error(err);
-            setError(err.message.replace('Firebase: ', ''));
+            setError(err.message.replace('Firebase: ', '').replace(/\(auth\/.*\)/, ''));
         } finally {
             setLoading(false);
         }
@@ -64,88 +45,58 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
             setLoading(true);
             setError('');
             const provider = new GoogleAuthProvider();
-            await signInWithPopup(auth, provider);
+            // Use redirect for mobile devices, popup for desktop
+            const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+            if (isMobile) {
+                await signInWithRedirect(auth, provider);
+            } else {
+                await signInWithPopup(auth, provider);
+            }
         } catch (err: any) {
             console.error(err);
-            setError(err.message.replace('Firebase: ', ''));
+            setError(err.message.replace('Firebase: ', '').replace(/\(auth\/.*\)/, ''));
         } finally {
             setLoading(false);
         }
     };
 
     return (
-        <div className="auth-container" style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            height: '100vh',
-            width: '100%',
-            background: 'var(--bg-deep)',
-            backgroundImage: 'var(--bg-gradient)'
-        }}>
-            <div className="auth-box" style={{
-                background: 'var(--glass-panel)',
-                backdropFilter: 'blur(20px)',
-                border: '1px solid var(--glass-panel-border)',
-                padding: '40px',
-                borderRadius: '24px',
-                width: '100%',
-                maxWidth: '420px',
-                boxShadow: '0 20px 50px rgba(0,0,0,0.3)'
-            }}>
-                <div className="auth-header" style={{ textAlign: 'center', marginBottom: '30px' }}>
-                    <div className="logo" style={{
-                        width: '60px', height: '60px', borderRadius: '15px',
-                        background: 'linear-gradient(135deg, var(--accent-primary), #f59e0b)',
-                        margin: '0 auto 16px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: '24px', fontWeight: 'bold', color: 'white'
-                    }}>A</div>
-                    <h2 style={{ fontSize: '24px', fontWeight: '700', color: 'var(--text-primary)', marginBottom: '8px' }}>
-                        {isSignup ? 'Create Account' : 'Welcome Back'}
-                    </h2>
-                    <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>
-                        {isSignup ? 'Join APIS Assistant today' : 'Sign in to continue'}
-                    </p>
-                </div>
+        <div className="auth-page">
+            <div className="auth-container">
+                {/* Logo */}
+                <div className="auth-logo">A</div>
 
-                {error && (
-                    <div className="error-message" style={{
-                        background: 'rgba(239, 68, 68, 0.1)',
-                        color: '#ef4444',
-                        padding: '12px',
-                        borderRadius: '8px',
-                        fontSize: '13px',
-                        marginBottom: '20px',
-                        textAlign: 'center'
-                    }}>
-                        {error}
-                    </div>
-                )}
+                {/* Header */}
+                <h1 className="auth-title">
+                    {isSignup ? 'Create Account' : 'Welcome Back'}
+                </h1>
+                <p className="auth-subtitle">
+                    {isSignup ? 'Join APIS Assistant today' : 'Sign in to continue'}
+                </p>
 
-                <form onSubmit={handleAuth} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                {/* Error */}
+                {error && <div className="auth-error">{error}</div>}
 
+                {/* Form */}
+                <form onSubmit={handleAuth} className="auth-form">
                     {isSignup && (
                         <>
-                            <div className="form-group">
-                                <input
-                                    type="text"
-                                    placeholder="Full Name"
-                                    value={fullName}
-                                    onChange={(e) => setFullName(e.target.value)}
-                                    required
-                                    style={inputStyle}
-                                />
-                            </div>
-
-                            <div style={{ display: 'flex', gap: '12px' }}>
+                            <input
+                                type="text"
+                                placeholder="Full Name"
+                                value={fullName}
+                                onChange={(e) => setFullName(e.target.value)}
+                                required
+                                className="auth-input"
+                            />
+                            <div className="auth-row">
                                 <input
                                     type="number"
                                     placeholder="Age"
                                     value={age}
                                     onChange={(e) => setAge(e.target.value)}
                                     required
-                                    style={{ ...inputStyle, flex: 1 }}
+                                    className="auth-input"
                                 />
                                 <input
                                     type="text"
@@ -153,130 +104,72 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
                                     value={designation}
                                     onChange={(e) => setDesignation(e.target.value)}
                                     required
-                                    style={{ ...inputStyle, flex: 1 }}
+                                    className="auth-input"
                                 />
                             </div>
                         </>
                     )}
 
-                    <div className="form-group">
-                        <input
-                            type="email"
-                            placeholder="Email Address"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            required
-                            style={inputStyle}
-                        />
-                    </div>
+                    <input
+                        type="email"
+                        placeholder="Email Address"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        required
+                        className="auth-input"
+                    />
 
-                    <div className="form-group">
-                        <input
-                            type="password"
-                            placeholder="Password"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            required
-                            style={inputStyle}
-                        />
-                    </div>
+                    <input
+                        type="password"
+                        placeholder="Password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        required
+                        className="auth-input"
+                    />
 
                     {isSignup && (
-                        <div className="form-group">
-                            <input
-                                type="password"
-                                placeholder="Confirm Password"
-                                value={confirmPassword}
-                                onChange={(e) => setConfirmPassword(e.target.value)}
-                                required
-                                style={inputStyle}
-                            />
-                        </div>
+                        <input
+                            type="password"
+                            placeholder="Confirm Password"
+                            value={confirmPassword}
+                            onChange={(e) => setConfirmPassword(e.target.value)}
+                            required
+                            className="auth-input"
+                        />
                     )}
 
-                    <button type="submit" disabled={loading} style={{
-                        background: 'linear-gradient(135deg, var(--accent-primary), #d97706)',
-                        color: 'white',
-                        border: 'none',
-                        padding: '14px',
-                        borderRadius: '12px',
-                        fontSize: '16px',
-                        fontWeight: '600',
-                        cursor: loading ? 'wait' : 'pointer',
-                        marginTop: '10px',
-                        transition: 'transform 0.2s',
-                        opacity: loading ? 0.7 : 1
-                    }}>
+                    <button type="submit" disabled={loading} className="auth-btn primary">
                         {loading ? 'Processing...' : (isSignup ? 'Sign Up' : 'Sign In')}
                     </button>
                 </form>
 
-                <div className="divider" style={{
-                    display: 'flex', alignItems: 'center', gap: '10px', margin: '24px 0', color: 'var(--text-tertiary)', fontSize: '13px'
-                }}>
-                    <div style={{ flex: 1, height: '1px', background: 'var(--glass-panel-border)' }}></div>
-                    OR
-                    <div style={{ flex: 1, height: '1px', background: 'var(--glass-panel-border)' }}></div>
+                {/* Divider */}
+                <div className="auth-divider">
+                    <span>OR</span>
                 </div>
 
-                <button
-                    onClick={handleGoogleSignIn}
-                    type="button"
-                    style={{
-                        width: '100%',
-                        background: 'var(--bg-surface)',
-                        border: '1px solid var(--glass-panel-border)',
-                        color: 'var(--text-primary)',
-                        padding: '12px',
-                        borderRadius: '12px',
-                        fontSize: '14px',
-                        fontWeight: '500',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '10px',
-                        transition: 'background 0.2s'
-                    }}
-                >
-                    <svg viewBox="0 0 24 24" width="20" height="20" xmlns="http://www.w3.org/2000/svg">
-                        <g transform="matrix(1, 0, 0, 1, 27.009001, -39.238998)">
-                            <path fill="#4285F4" d="M -3.264 51.509 C -3.264 50.719 -3.334 49.969 -3.454 49.239 L -14.754 49.239 L -14.754 53.749 L -8.284 53.749 C -8.574 55.229 -9.424 56.479 -10.684 57.329 L -10.684 60.329 L -6.824 60.329 C -4.564 58.239 -3.264 55.159 -3.264 51.509 Z" />
-                            <path fill="#34A853" d="M -14.754 63.239 C -11.514 63.239 -8.804 62.159 -6.824 60.329 L -10.684 57.329 C -11.764 58.059 -13.134 58.489 -14.754 58.489 C -17.884 58.489 -20.534 56.379 -21.484 53.529 L -25.464 53.529 L -25.464 56.619 C -23.494 60.539 -19.444 63.239 -14.754 63.239 Z" />
-                            <path fill="#FBBC05" d="M -21.484 53.529 C -21.734 52.769 -21.864 51.959 -21.864 51.129 C -21.864 50.299 -21.734 49.489 -21.484 48.729 L -21.484 45.639 L -25.464 45.639 C -26.284 47.269 -26.754 49.129 -26.754 51.129 C -26.754 53.129 -26.284 54.989 -25.464 56.619 L -21.484 53.529 Z" />
-                            <path fill="#EA4335" d="M -14.754 43.769 C -12.984 43.769 -11.404 44.379 -10.154 45.579 L -6.714 42.139 C -8.804 40.189 -11.514 39.019 -14.754 39.019 C -19.444 39.019 -23.494 41.719 -25.464 45.639 L -21.484 48.729 C -20.534 45.879 -17.884 43.769 -14.754 43.769 Z" />
-                        </g>
+                {/* Google Button */}
+                <button onClick={handleGoogleSignIn} type="button" className="auth-btn google">
+                    <svg viewBox="0 0 24 24" width="20" height="20">
+                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
                     </svg>
                     Continue with Google
                 </button>
 
-                <div style={{ marginTop: '24px', textAlign: 'center', fontSize: '14px', color: 'var(--text-secondary)' }}>
+                {/* Toggle */}
+                <p className="auth-toggle">
                     {isSignup ? "Already have an account? " : "Don't have an account? "}
-                    <button
-                        onClick={() => setIsSignup(!isSignup)}
-                        style={{
-                            background: 'none', border: 'none', color: 'var(--accent-primary)',
-                            fontWeight: '600', cursor: 'pointer', padding: 0
-                        }}
-                    >
+                    <button onClick={() => setIsSignup(!isSignup)} className="auth-toggle-btn">
                         {isSignup ? 'Sign In' : 'Sign Up'}
                     </button>
-                </div>
+                </p>
             </div>
         </div>
     );
-};
-
-const inputStyle = {
-    width: '100%',
-    padding: '12px 16px',
-    background: 'rgba(255, 255, 255, 0.05)',
-    border: '1px solid var(--glass-panel-border)',
-    borderRadius: '12px',
-    color: 'var(--text-primary)',
-    fontSize: '15px',
-    outline: 'none',
-    transition: 'border-color 0.2s'
 };
 
 export default Auth;
